@@ -34,13 +34,13 @@ wss.on('connection', (ws, req) => {
     const data = JSON.parse(message);
     switch (data.type) {
       case 'SET_PIXEL':
-        if (!pixelInsertIsValid(userInfo)) break;
+        if (!pixelInsertIsValid(userInfo, data.payload.x, data.payload.y)) break;
         broadcast({
           type: 'SET_PIXEL',
           message: data.payload,
         }, ws);
         setPixel(data.payload.x, data.payload.y, data.payload.color, userInfo);
-        userInfo.cooldown = Date.now() + 60000;
+        userInfo.cooldown = Date.now() + 10;
         ws.send(JSON.stringify({
           type: 'USER_INFO',
           message: userInfo
@@ -95,8 +95,10 @@ function getUserInfo(session) {
   return userInfo;
 }
 
-function pixelInsertIsValid(userInfo) {
+function pixelInsertIsValid(userInfo, x, y) {
   if (userInfo == null) return false;
+  if (x >= CANVAS_X || x < 0) return false;
+  if (y >= CANVAS_Y || y < 0) return false;
   if (userInfo.purchasedPixels != 0 || userInfo.cooldown <= Date.now()) return true;
   return false;
 }
@@ -104,9 +106,7 @@ function pixelInsertIsValid(userInfo) {
 function setPixel(x, y, color, userInfo) {
   const updatePixel = db.prepare('REPLACE INTO pixels (x,y,color) VALUES (?,?,?)');
   const addPixelUserRelation = db.prepare('INSERT INTO pixels_users (x,y,user_id,timestamp) VALUES (?,?,?,?)')
-
-
-  const value = (CANVAS_Y * x) - CANVAS_Y + y - 1;
+  const value = (CANVAS_Y * (x + 1)) - CANVAS_Y + y;
   canvas[value] = color;
   updatePixel.run(x, y, color);
   addPixelUserRelation.run(x, y, userInfo.userId, Date.now())
@@ -128,12 +128,15 @@ function loadCanvasFromDB() {
   });
 }
 
+
+
+//INGNORE...
 function fillDB() {
   const insert = db.prepare('REPLACE INTO pixels (x,y,color) VALUES (@x,@y,@color)');
 
   const values = [];
-  for (let x = 1; x <= 350; x += 1) {
-    for (let y = 1; y <= 450; y += 1) {
+  for (let x = 0; x < 350; x += 1) {
+    for (let y = 0; y < 450; y += 1) {
       values.push({ x, y, color: 11 });
     }
   }
