@@ -5,15 +5,12 @@ function getUserInfo(session) {
     signedIn: false, userId: '', cooldown: Date.now(), purchasedPixels: 0,
   };
 
-  if (session == null) {
+  if (session == null || session.is_unlinked) {
     return userInfo;
   }
 
-  const uid = session.opaque_user_id;
+  const uid = session.user_id;
 
-  if (uid.charAt(0) !== 'U') {
-    return userInfo;
-  }
   if (!db.checkIfUserExists(uid)) {
     db.addUserToDB(uid);
   }
@@ -33,5 +30,12 @@ function pixelInsertIsValid(userInfo, x, y, canvasX, canvasY) {
   return false;
 }
 
+
+function processPurchase(transaction_id, uid, time, sku, amount) {
+  db.giveUserPixels(uid, amount);
+  db.addPurchaseToDB(transaction_id, uid, time, sku, amount);
+}
+
 exports.getUserInfo = getUserInfo;
 exports.pixelInsertIsValid = pixelInsertIsValid;
+exports.processPurchase = processPurchase;

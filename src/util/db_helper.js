@@ -4,6 +4,7 @@ function createTables() {
   db.prepare('CREATE TABLE IF NOT EXISTS pixels (x INTEGER NOT NULL, y INTEGER NOT NULL, color INT, PRIMARY KEY(x,y))').run();
   db.prepare('CREATE TABLE IF NOT EXISTS users (user_id TEXT NOT NULL PRIMARY KEY, pixels_remaining INTEGER)').run();
   db.prepare('CREATE TABLE IF NOT EXISTS pixels_users (id INTEGER PRIMARY KEY, timestamp INTEGER NOT NULL, x INTEGER NOT NULL, y INTEGER NOT NULL, user_id TEXT NOT NULL, FOREIGN KEY (x,y) REFERENCES pixels(x,y), FOREIGN KEY (user_id) REFERENCES users(user_id))').run();
+  db.prepare('CREATE TABLE IF NOT EXISTS purchases (transaction_id TEXT PRIMARY KEY, user_id TEXT NOT NULL, time TEXT NOT NULL, sku TEXT NOT NULL, amount INTEGER NOT NULL)').run();
 }
 
 function loadCanvasFromDB(canvasX, canvasY) {
@@ -43,9 +44,24 @@ function addPixelToDB(x, y, color, uid) {
   addPixelUserRelation.run(x, y, uid, Date.now());
 }
 
+function addPurchaseToDB(transaction_id, user_id, time, sku, amount) {
+  const stmt = db.prepare('INSERT INTO purchases (transaction_id, user_id, time, sku, amount) VALUES (?,?,?,?,?)');
+  stmt.run(transaction_id, user_id, time, sku, amount);
+}
+
+function giveUserPixels(uid, amount) {
+  if (!checkIfUserExists(uid)) {
+    addUserToDB(uid)
+  }
+  const stmt = db.prepare('UPDATE users SET pixels_remaining = pixels_remaining + ? WHERE user_id = ?');
+  stmt.run(amount, uid)
+}
+
 exports.createTables = createTables;
 exports.loadCanvasFromDB = loadCanvasFromDB;
 exports.addUserToDB = addUserToDB;
 exports.checkIfUserExists = checkIfUserExists;
 exports.getUserFromDB = getUserFromDB;
 exports.addPixelToDB = addPixelToDB;
+exports.giveUserPixels = giveUserPixels;
+exports.addPurchaseToDB = addPurchaseToDB;

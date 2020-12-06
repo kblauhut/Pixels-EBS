@@ -106,3 +106,6 @@ dist
 # sqlite
 *.sqlite
 *.sqlite-journal
+
+# certs
+/cert

@@ -2,6 +2,8 @@ const CANVAS_X = 300;
 const CANVAS_Y = 450;
 const COOLDOWN_MS = 10000;
 
+const fs = require('fs');
+const https = require('https');
 const WebSocket = require('ws');
 const jwt = require('./util/jwt_helper');
 const db = require('./util/db_helper')
@@ -9,7 +11,12 @@ const logic = require('./util/logic')
 
 db.createTables();
 
-const wss = new WebSocket.Server({ port: 8989 });
+const server = https.createServer({
+  cert: fs.readFileSync('./cert/server.crt'),
+  key: fs.readFileSync('./cert/server.key')
+}).listen(8989);
+
+const wss = new WebSocket.Server({ server });
 const canvas = db.loadCanvasFromDB(CANVAS_X, CANVAS_Y);
 
 const broadcast = (data, ws) => {
@@ -36,6 +43,9 @@ wss.on('connection', (ws, req) => {
         break;
       case 'AUTHENTICATE':
         userInfo = authenticate(data, userInfo, ws);
+        break;
+      case 'PURCHASE':
+        purchase(data, userInfo, ws)
         break;
       default:
         break;
@@ -67,11 +77,36 @@ function setPixel(data, ws, userInfo) {
 }
 
 function authenticate(data, userInfo, ws) {
-  const session = jwt.createSession(data.payload.token);
+  const session = jwt.from(data.payload.token);
   userInfo = logic.getUserInfo(session);
+
+  console.log(userInfo);
+
   ws.send(JSON.stringify({
     type: 'USER_INFO',
     message: userInfo
   }));
+
   return userInfo
+}
+
+function purchase(data, userInfo, ws) {
+  const receipt = jwt.from(data.payload.transaction.transactionReceipt);
+  const transactionId = receipt.data.transactionId;
+  const time = receipt.data.time;
+  const sku = receipt.data.product.sku;
+  const amount = receipt.data.product.cost.amount;
+  const uid = userInfo.userId;
+
+  console.log(receipt);
+
+  userInfo.purchasedPixels += amount;
+  logic.processPurchase(transactionId, uid, time, sku, amount)
+
+  ws.send(JSON.stringify({
+    type: 'USER_INFO',
+    message: userInfo
+  }));
+
+  return userInfo;
 }
