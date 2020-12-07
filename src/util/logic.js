@@ -1,8 +1,8 @@
 const db = require('./db_helper');
 
-function getUserInfo(session) {
+function getUserInfo(session, cooldownMS) {
   const userInfo = {
-    signedIn: false, userId: '', cooldown: Date.now(), purchasedPixels: 0,
+    signedIn: false, userId: '', cooldownUnix: Date.now(), cooldown: 0, purchasedPixels: 0,
   };
 
   if (!session || !session.user_id || session.is_unlinked) {
@@ -19,6 +19,7 @@ function getUserInfo(session) {
   userInfo.signedIn = true;
   userInfo.purchasedPixels = query.pixels_remaining;
   userInfo.userId = query.user_id;
+  userInfo.cooldown = query.pixels_remaining == 0 ? cooldownMS : 0
   return userInfo;
 }
 
@@ -27,7 +28,7 @@ function pixelInsertIsValid(userInfo, x, y, canvasX, canvasY) {
   if (userInfo.userId == '') return false;
   if (x >= canvasX || x < 0) return false;
   if (y >= canvasY || y < 0) return false;
-  if (userInfo.purchasedPixels !== 0 || userInfo.cooldown <= Date.now()) return true;
+  if (userInfo.purchasedPixels > 0 || userInfo.cooldownUnix <= Date.now()) return true;
   return false;
 }
 

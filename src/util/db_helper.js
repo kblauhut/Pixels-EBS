@@ -42,7 +42,6 @@ function addPixelToDB(x, y, color, uid) {
   const addPixelUserRelation = db.prepare('INSERT INTO pixels_users (x,y,user_id,timestamp) VALUES (?,?,?,?)');
   updatePixel.run(x, y, color);
   addPixelUserRelation.run(x, y, uid, Date.now());
-  console.log(x + ":" + y);
 }
 
 function addPurchaseToDB(transaction_id, user_id, time, sku, amount) {

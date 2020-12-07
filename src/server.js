@@ -39,13 +39,13 @@ wss.on('connection', (ws, req) => {
     const data = JSON.parse(message);
     switch (data.type) {
       case 'SET_PIXEL':
-        setPixel(data, ws, userInfo)
+        userInfo = setPixel(data, ws, userInfo)
         break;
       case 'AUTHENTICATE':
         userInfo = authenticate(data, userInfo, ws);
         break;
       case 'PURCHASE':
-        purchase(data, userInfo, ws)
+        userInfo = purchase(data, userInfo, ws)
         break;
       default:
         break;
@@ -58,7 +58,9 @@ function setPixel(data, ws, userInfo) {
   const y = data.payload.y;
   const color = data.payload.color;
 
-  if (!logic.pixelInsertIsValid(userInfo, x, y, CANVAS_X, CANVAS_Y)) return;
+  if (!logic.pixelInsertIsValid(userInfo, x, y, CANVAS_X, CANVAS_Y)) {
+    return userInfo;
+  }
 
   const value = (CANVAS_Y * (x + 1)) - CANVAS_Y + y;
   canvas[value] = color;
@@ -69,21 +71,23 @@ function setPixel(data, ws, userInfo) {
     message: data.payload,
   }, ws);
 
-  userInfo.cooldown = Date.now() + COOLDOWN_MS;
+  userInfo.cooldownUnix = Date.now() + COOLDOWN_MS;
+  userInfo.cooldown = COOLDOWN_MS;
   ws.send(JSON.stringify({
-    type: 'USER_INFO',
+    type: 'USER_DATA',
     message: userInfo
   }));
+  return userInfo;
 }
 
 function authenticate(data, userInfo, ws) {
   const session = jwt.from(data.payload.token);
-  userInfo = logic.getUserInfo(session);
+  userInfo = logic.getUserInfo(session, COOLDOWN_MS);
 
   console.log(userInfo);
 
   ws.send(JSON.stringify({
-    type: 'USER_INFO',
+    type: 'USER_DATA',
     message: userInfo
   }));
 
