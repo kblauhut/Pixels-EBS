@@ -5,7 +5,7 @@ function getUserInfo(session) {
     signedIn: false, userId: '', cooldown: Date.now(), purchasedPixels: 0,
   };
 
-  if (session == null || session.is_unlinked) {
+  if (!session || !session.user_id || session.is_unlinked) {
     return userInfo;
   }
 
@@ -24,6 +24,7 @@ function getUserInfo(session) {
 
 function pixelInsertIsValid(userInfo, x, y, canvasX, canvasY) {
   if (userInfo == null) return false;
+  if (userInfo.userId == '') return false;
   if (x >= canvasX || x < 0) return false;
   if (y >= canvasY || y < 0) return false;
   if (userInfo.purchasedPixels !== 0 || userInfo.cooldown <= Date.now()) return true;
