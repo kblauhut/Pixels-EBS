@@ -1,6 +1,6 @@
 const CANVAS_X = 300;
 const CANVAS_Y = 450;
-const COOLDOWN_MS = 10000;
+const COOLDOWN_MS = 60000;
 
 const fs = require('fs');
 const https = require('https');
@@ -18,6 +18,7 @@ const server = https.createServer({
 
 const wss = new WebSocket.Server({ server });
 const canvas = db.loadCanvasFromDB(CANVAS_X, CANVAS_Y);
+var connectedUsers = []
 
 const broadcast = (data, ws) => {
   wss.clients.forEach((client) => {
@@ -51,6 +52,14 @@ wss.on('connection', (ws, req) => {
         break;
     }
   });
+  ws.on('close', () => {
+    if (userInfo.signedIn) {
+      const index = connectedUsers.indexOf(userInfo.userId);
+      if (index > -1) {
+        connectedUsers.splice(index, 1);
+      }
+    }
+  })
 });
 
 function setPixel(data, ws, userInfo) {
@@ -65,6 +74,13 @@ function setPixel(data, ws, userInfo) {
   const value = (CANVAS_Y * (x + 1)) - CANVAS_Y + y;
   canvas[value] = color;
   db.addPixelToDB(x, y, color, userInfo.userId)
+  if (userInfo.purchasedPixels > 0) {
+    db.consumePurchasedPixel(userInfo.userId)
+    userInfo.purchasedPixels -= 1;
+  } else {
+    db.updateUserCooldown(userInfo.userId)
+    console.log("s");
+  }
 
   broadcast({
     type: 'SET_PIXEL',
@@ -72,7 +88,8 @@ function setPixel(data, ws, userInfo) {
   }, ws);
 
   userInfo.cooldownUnix = Date.now() + COOLDOWN_MS;
-  userInfo.cooldown = COOLDOWN_MS;
+  userInfo.cooldown = userInfo.purchasedPixels > 0 ? 0 : COOLDOWN_MS
+
   ws.send(JSON.stringify({
     type: 'USER_DATA',
     message: userInfo
@@ -86,6 +103,12 @@ function authenticate(data, userInfo, ws) {
 
   console.log(userInfo);
 
+  if (userInfo.signedIn && connectedUsers.includes(userInfo.userId)) {
+    ws.close()
+  }
+
+  connectedUsers.push(userInfo.userId)
+
   ws.send(JSON.stringify({
     type: 'USER_DATA',
     message: userInfo
@@ -96,6 +119,8 @@ function authenticate(data, userInfo, ws) {
 
 function purchase(data, userInfo, ws) {
   const receipt = jwt.from(data.payload.transaction.transactionReceipt);
+  if (receipt == null) return;
+
   const transactionId = receipt.data.transactionId;
   const time = receipt.data.time;
   const sku = receipt.data.product.sku;
@@ -108,7 +133,7 @@ function purchase(data, userInfo, ws) {
   logic.processPurchase(transactionId, uid, time, sku, amount)
 
   ws.send(JSON.stringify({
-    type: 'USER_INFO',
+    type: 'USER_DATA',
     message: userInfo
   }));
 

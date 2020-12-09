@@ -16,10 +16,14 @@ function getUserInfo(session, cooldownMS) {
   }
 
   const query = db.getUserFromDB(uid);
+  const cooldown = query.last_insert_time - Date.now() + cooldownMS;
+
   userInfo.signedIn = true;
   userInfo.purchasedPixels = query.pixels_remaining;
   userInfo.userId = query.user_id;
-  userInfo.cooldown = query.pixels_remaining == 0 ? cooldownMS : 0
+  userInfo.cooldown = query.pixels_remaining == 0 && cooldown > 0 ? cooldown : 0
+  userInfo.cooldownUnix = query.last_insert_time + cooldownMS;
+  console.log(cooldown);
   return userInfo;
 }
 

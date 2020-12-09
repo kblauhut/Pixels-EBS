@@ -2,7 +2,7 @@ const db = require('better-sqlite3')('db.sqlite');
 
 function createTables() {
   db.prepare('CREATE TABLE IF NOT EXISTS pixels (x INTEGER NOT NULL, y INTEGER NOT NULL, color INT, PRIMARY KEY(x,y))').run();
-  db.prepare('CREATE TABLE IF NOT EXISTS users (user_id TEXT NOT NULL PRIMARY KEY, pixels_remaining INTEGER)').run();
+  db.prepare('CREATE TABLE IF NOT EXISTS users (user_id TEXT NOT NULL PRIMARY KEY, pixels_remaining INTEGER, last_insert_time INT NOT NULL)').run();
   db.prepare('CREATE TABLE IF NOT EXISTS pixels_users (id INTEGER PRIMARY KEY, timestamp INTEGER NOT NULL, x INTEGER NOT NULL, y INTEGER NOT NULL, user_id TEXT NOT NULL, FOREIGN KEY (x,y) REFERENCES pixels(x,y), FOREIGN KEY (user_id) REFERENCES users(user_id))').run();
   db.prepare('CREATE TABLE IF NOT EXISTS purchases (transaction_id TEXT PRIMARY KEY, user_id TEXT NOT NULL, time TEXT NOT NULL, sku TEXT NOT NULL, amount INTEGER NOT NULL)').run();
 }
@@ -18,8 +18,8 @@ function loadCanvasFromDB(canvasX, canvasY) {
 }
 
 function addUserToDB(uid) {
-  const stmt = db.prepare('INSERT INTO users (user_id, pixels_remaining) VALUES (?,?)');
-  stmt.run(uid, 0);
+  const stmt = db.prepare('INSERT INTO users (user_id, pixels_remaining, last_insert_time) VALUES (?,?,?)');
+  stmt.run(uid, 0, 0);
 }
 
 function checkIfUserExists(uid) {
@@ -33,7 +33,7 @@ function checkIfUserExists(uid) {
 }
 
 function getUserFromDB(uid) {
-  const stmt = db.prepare('SELECT user_id, pixels_remaining FROM users WHERE user_id = ?');
+  const stmt = db.prepare('SELECT user_id, pixels_remaining, last_insert_time FROM users WHERE user_id = ?');
   return stmt.get(uid);
 }
 
@@ -42,6 +42,16 @@ function addPixelToDB(x, y, color, uid) {
   const addPixelUserRelation = db.prepare('INSERT INTO pixels_users (x,y,user_id,timestamp) VALUES (?,?,?,?)');
   updatePixel.run(x, y, color);
   addPixelUserRelation.run(x, y, uid, Date.now());
+}
+
+function consumePurchasedPixel(uid) {
+  const stmt = db.prepare('UPDATE users SET pixels_remaining = pixels_remaining - ?, last_insert_time = ? WHERE user_id = ?');
+  stmt.run(1, Date.now(), uid);
+}
+
+function updateUserCooldown(uid) {
+  const stmt = db.prepare('UPDATE users SET last_insert_time = ? WHERE user_id = ?');
+  stmt.run(Date.now(), uid);
 }
 
 function addPurchaseToDB(transaction_id, user_id, time, sku, amount) {
@@ -65,3 +75,5 @@ exports.getUserFromDB = getUserFromDB;
 exports.addPixelToDB = addPixelToDB;
 exports.giveUserPixels = giveUserPixels;
 exports.addPurchaseToDB = addPurchaseToDB;
+exports.consumePurchasedPixel = consumePurchasedPixel;
+exports.updateUserCooldown = updateUserCooldown;
