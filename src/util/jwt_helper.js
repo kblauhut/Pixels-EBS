@@ -1,6 +1,9 @@
-const jwt = require('jsonwebtoken');
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '../../.env') })
 
-const secret = Buffer.from('F5dfewdiA/lXpI5DAZOnBXsCnBwvBxV6nRLEo6i9fLo=', 'base64');
+const jwt = require('jsonwebtoken');
+const secretKey = process.env.EXTENSION_SECRET ? process.env.EXTENSION_SECRET : ''
+const secret = Buffer.from(secretKey, 'base64');
 
 function from(token) {
   try {

@@ -23,7 +23,6 @@ function getUserInfo(session, cooldownMS) {
   userInfo.userId = query.user_id;
   userInfo.cooldown = query.pixels_remaining == 0 && cooldown > 0 ? cooldown : 0
   userInfo.cooldownUnix = query.last_insert_time + cooldownMS;
-  console.log(cooldown);
   return userInfo;
 }
 

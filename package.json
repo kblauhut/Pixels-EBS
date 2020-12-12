@@ -5,11 +5,12 @@
   "main": "app.js",
   "dependencies": {
     "better-sqlite3": "^7.1.1",
+    "dotenv": "^8.2.0",
     "jsonwebtoken": "^8.5.1",
     "ws": "^7.4.0"
   },
   "scripts": {
-    "start": "node src/server.js",
+    "start": "pm2 start src/server.js",
     "lint": "eslint src/**/*.js"
   },
   "devDependencies": {

@@ -109,3 +109,6 @@ dist
 
 # certs
 /cert
+
+# .env files
+.env

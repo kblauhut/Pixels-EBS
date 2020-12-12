@@ -79,7 +79,6 @@ function setPixel(data, ws, userInfo) {
     userInfo.purchasedPixels -= 1;
   } else {
     db.updateUserCooldown(userInfo.userId)
-    console.log("s");
   }
 
   broadcast({
