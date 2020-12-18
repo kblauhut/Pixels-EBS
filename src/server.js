@@ -1,13 +1,16 @@
-const CANVAS_X = 300;
-const CANVAS_Y = 450;
-const COOLDOWN_MS = 60000;
-
 const fs = require('fs');
 const https = require('https');
 const WebSocket = require('ws');
 const jwt = require('./util/jwt_helper');
 const db = require('./util/db_helper')
 const logic = require('./util/logic')
+const maintenance = require('./util/maintenance_ws')
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '../.env') });
+
+const CANVAS_X = 300;
+const CANVAS_Y = 450;
+const COOLDOWN_MS = process.env.COOLDOWN ? process.env.COOLDOWN : 60000;
 
 db.createTables();
 
@@ -30,7 +33,6 @@ const broadcast = (data, ws) => {
 
 wss.on('connection', (ws, req) => {
   let userInfo = null;
-
   ws.send(JSON.stringify({
     type: 'LOAD_CANVAS',
     message: { x: CANVAS_X, y: CANVAS_Y, canvas: Array.from(canvas) },
@@ -40,10 +42,12 @@ wss.on('connection', (ws, req) => {
     const data = JSON.parse(message);
     switch (data.type) {
       case 'SET_PIXEL':
+        maintenance.sendPixelPlace({ data })
         userInfo = setPixel(data, ws, userInfo)
         break;
       case 'AUTHENTICATE':
         userInfo = authenticate(data, userInfo, ws);
+        maintenance.sendCurrentUsers(wss.clients.size, connectedUsers)
         break;
       case 'PURCHASE':
         userInfo = purchase(data, userInfo, ws)
