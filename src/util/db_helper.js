@@ -19,7 +19,7 @@ function loadCanvasFromDB(canvasX, canvasY) {
 
 function addUserToDB(uid) {
   const stmt = db.prepare('INSERT INTO users (user_id, pixels_remaining, last_insert_time) VALUES (?,?,?)');
-  stmt.run(uid, 0, 0);
+  stmt.run(uid, 10, 0);
 }
 
 function checkIfUserExists(uid) {

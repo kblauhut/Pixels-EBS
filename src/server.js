@@ -42,7 +42,7 @@ wss.on('connection', (ws, req) => {
     const data = JSON.parse(message);
     switch (data.type) {
       case 'SET_PIXEL':
-        maintenance.sendPixelPlace({ data })
+        maintenance.sendPixelPlace(data)
         userInfo = setPixel(data, ws, userInfo)
         break;
       case 'AUTHENTICATE':
@@ -110,7 +110,9 @@ function authenticate(data, userInfo, ws) {
     ws.close()
   }
 
-  connectedUsers.push(userInfo.userId)
+  if (userInfo.signedIn) {
+    connectedUsers.push(userInfo.userId)
+  }
 
   ws.send(JSON.stringify({
     type: 'USER_DATA',

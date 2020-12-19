@@ -32,6 +32,7 @@ function sendCurrentUsers(users, userList) {
 }
 
 function sendPixelPlace(pixelData) {
+    console.log(pixelData);
     const x = pixelData.payload.x;
     const y = pixelData.payload.y;
     const color = pixelData.payload.color;
