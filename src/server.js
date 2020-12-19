@@ -10,7 +10,7 @@ require('dotenv').config({ path: path.join(__dirname, '../.env') });
 
 const CANVAS_X = 300;
 const CANVAS_Y = 450;
-const COOLDOWN_MS = process.env.COOLDOWN ? process.env.COOLDOWN : 60000;
+const COOLDOWN_MS = process.env.COOLDOWN ? parseInt(process.env.COOLDOWN) : 60000;
 
 db.createTables();
 
@@ -70,7 +70,6 @@ function setPixel(data, ws, userInfo) {
   const x = data.payload.x;
   const y = data.payload.y;
   const color = data.payload.color;
-
   if (!logic.pixelInsertIsValid(userInfo, x, y, CANVAS_X, CANVAS_Y)) {
     return userInfo;
   }
