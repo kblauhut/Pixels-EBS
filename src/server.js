@@ -111,7 +111,6 @@ function authenticate(data, ws) {
     console.log(ws.userInfo);
     ws.id = id++;
     lookup[ws.id] = ws;
-    console.log(Object.keys(lookup));
   }
 
   broadcastToUid(
