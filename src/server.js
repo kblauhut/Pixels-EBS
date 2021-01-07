@@ -4,7 +4,6 @@ const WebSocket = require('ws');
 const jwt = require('./util/jwt_helper');
 const db = require('./util/db_helper')
 const logic = require('./util/logic')
-const maintenance = require('./util/maintenance_ws')
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '../.env') });
 
@@ -21,7 +20,8 @@ const server = https.createServer({
 
 const wss = new WebSocket.Server({ server });
 const canvas = db.loadCanvasFromDB(CANVAS_X, CANVAS_Y);
-var connectedUsers = []
+var id = 0;
+var lookup = {};
 
 const broadcast = (data, ws) => {
   wss.clients.forEach((client) => {
@@ -31,8 +31,17 @@ const broadcast = (data, ws) => {
   });
 };
 
+const broadcastToUid = (userID, data) => {
+  Object.keys(lookup).forEach(key => {
+    if (lookup[key].userInfo.userId === userID) {
+      lookup[key].send(data);
+    }
+  });
+}
+
 wss.on('connection', (ws, req) => {
-  let userInfo = null;
+  ws.userInfo = null;
+
   ws.send(JSON.stringify({
     type: 'LOAD_CANVAS',
     message: { x: CANVAS_X, y: CANVAS_Y, canvas: Array.from(canvas) },
@@ -42,46 +51,39 @@ wss.on('connection', (ws, req) => {
     const data = JSON.parse(message);
     switch (data.type) {
       case 'SET_PIXEL':
-        maintenance.sendPixelPlace(data)
-        userInfo = setPixel(data, ws, userInfo)
+        setPixel(data, ws);
         break;
       case 'AUTHENTICATE':
-        userInfo = authenticate(data, userInfo, ws);
-        maintenance.sendCurrentUsers(wss.clients.size, connectedUsers)
+        authenticate(data, ws);
         break;
       case 'PURCHASE':
-        userInfo = purchase(data, userInfo, ws)
+        purchase(data, ws)
         break;
       default:
         break;
     }
   });
   ws.on('close', () => {
-    if (userInfo.signedIn) {
-      const index = connectedUsers.indexOf(userInfo.userId);
-      if (index > -1) {
-        connectedUsers.splice(index, 1);
-      }
-    }
+    delete lookup[ws.id];
   })
 });
 
-function setPixel(data, ws, userInfo) {
+function setPixel(data, ws) {
   const x = data.payload.x;
   const y = data.payload.y;
   const color = data.payload.color;
-  if (!logic.pixelInsertIsValid(userInfo, x, y, CANVAS_X, CANVAS_Y)) {
-    return userInfo;
+  if (!logic.pixelInsertIsValid(ws.userInfo, x, y, CANVAS_X, CANVAS_Y)) {
+    return;
   }
 
   const value = (CANVAS_Y * (x + 1)) - CANVAS_Y + y;
   canvas[value] = color;
-  db.addPixelToDB(x, y, color, userInfo.userId)
-  if (userInfo.purchasedPixels > 0) {
-    db.consumePurchasedPixel(userInfo.userId)
-    userInfo.purchasedPixels -= 1;
+  db.addPixelToDB(x, y, color, ws.userInfo.userId)
+  if (ws.userInfo.purchasedPixels > 0) {
+    db.consumePurchasedPixel(ws.userInfo.userId)
+    ws.userInfo.purchasedPixels -= 1;
   } else {
-    db.updateUserCooldown(userInfo.userId)
+    db.updateUserCooldown(ws.userInfo.userId)
   }
 
   broadcast({
@@ -89,39 +91,39 @@ function setPixel(data, ws, userInfo) {
     message: data.payload,
   }, ws);
 
-  userInfo.cooldownUnix = Date.now() + COOLDOWN_MS;
-  userInfo.cooldown = userInfo.purchasedPixels > 0 ? 0 : COOLDOWN_MS
+  ws.userInfo.cooldownUnix = Date.now() + COOLDOWN_MS;
+  ws.userInfo.cooldown = ws.userInfo.purchasedPixels > 0 ? 0 : COOLDOWN_MS
 
-  ws.send(JSON.stringify({
-    type: 'USER_DATA',
-    message: userInfo
-  }));
-  return userInfo;
+  broadcastToUid(
+    ws.userInfo.userId,
+    JSON.stringify({
+      type: 'USER_DATA',
+      message: ws.userInfo
+    })
+  )
 }
 
-function authenticate(data, userInfo, ws) {
+function authenticate(data, ws) {
   const session = jwt.from(data.payload.token);
-  userInfo = logic.getUserInfo(session, COOLDOWN_MS);
+  ws.userInfo = logic.getUserInfo(session, COOLDOWN_MS);
 
-  console.log(userInfo);
-
-  if (userInfo.signedIn && connectedUsers.includes(userInfo.userId)) {
-    ws.close()
+  if (ws.userInfo.signedIn) {
+    console.log(ws.userInfo);
+    ws.id = id++;
+    lookup[ws.id] = ws;
+    console.log(Object.keys(lookup));
   }
 
-  if (userInfo.signedIn) {
-    connectedUsers.push(userInfo.userId)
-  }
-
-  ws.send(JSON.stringify({
-    type: 'USER_DATA',
-    message: userInfo
-  }));
-
-  return userInfo
+  broadcastToUid(
+    ws.userInfo.userId,
+    JSON.stringify({
+      type: 'USER_DATA',
+      message: ws.userInfo
+    })
+  )
 }
 
-function purchase(data, userInfo, ws) {
+function purchase(data, ws) {
   const receipt = jwt.from(data.payload.transaction.transactionReceipt);
   if (receipt == null) return;
 
@@ -129,17 +131,18 @@ function purchase(data, userInfo, ws) {
   const time = receipt.data.time;
   const sku = receipt.data.product.sku;
   const amount = receipt.data.product.cost.amount;
-  const uid = userInfo.userId;
+  const uid = ws.userInfo.userId;
 
   console.log(receipt);
 
-  userInfo.purchasedPixels += amount;
+  ws.userInfo.purchasedPixels += amount;
   logic.processPurchase(transactionId, uid, time, sku, amount)
 
-  ws.send(JSON.stringify({
-    type: 'USER_DATA',
-    message: userInfo
-  }));
-
-  return userInfo;
+  broadcastToUid(
+    ws.userInfo.userId,
+    JSON.stringify({
+      type: 'USER_DATA',
+      message: ws.userInfo
+    })
+  )
 }
