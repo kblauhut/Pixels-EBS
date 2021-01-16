@@ -91,6 +91,8 @@ function setPixel(data, ws) {
     message: data.payload,
   }, ws);
 
+  console.log(data.payload);
+
   ws.userInfo.cooldownUnix = Date.now() + COOLDOWN_MS;
   ws.userInfo.cooldown = ws.userInfo.purchasedPixels > 0 ? 0 : COOLDOWN_MS
 
